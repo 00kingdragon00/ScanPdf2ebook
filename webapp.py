@@ -4,8 +4,6 @@ import threading
 
 from flask import Flask, redirect, render_template, request, url_for
 
-import main as pipeline
-
 app = Flask(__name__)
 
 INPUT_DIR = "input"
