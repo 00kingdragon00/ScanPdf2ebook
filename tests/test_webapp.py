@@ -16,7 +16,7 @@ def test_upload_form_page_loads(client):
 
 
 def test_upload_saves_pdf_to_input_dir(client, tmp_path, monkeypatch):
-    monkeypatch.setattr(webapp, "run_pipeline", lambda book_name, pdf_path: None)
+    monkeypatch.setattr(webapp, "run_pipeline", lambda book_name, pdf_path, args: None)
 
     data = {"pdf": (io.BytesIO(b"%PDF-1.4 fake content"), "mybook.pdf")}
     resp = client.post("/upload", data=data, content_type="multipart/form-data")
@@ -53,7 +53,9 @@ def test_run_pipeline_updates_progress_and_writes_raw_files(tmp_path, monkeypatc
     doc.save(pdf_path)
     doc.close()
 
-    webapp.run_pipeline("tinybook", pdf_path)
+    work_dir = os.path.join(str(tmp_path / "output"), "tinybook", "ocr_work")
+    args = webapp.ocr_args_from_form({}, work_dir)
+    webapp.run_pipeline("tinybook", pdf_path, args)
 
     state = webapp.PROGRESS["tinybook"]
     assert state == {"done": 2, "total": 2, "finished": True, "error": None}
@@ -90,7 +92,9 @@ def test_run_pipeline_records_error_and_finishes_on_exception(tmp_path, monkeypa
 
     monkeypatch.setattr(webapp.pipeline, "render_pages", fake_render_pages)
 
-    webapp.run_pipeline("brokenbook", str(tmp_path / "input" / "brokenbook.pdf"))
+    work_dir = os.path.join(str(tmp_path / "output"), "brokenbook", "ocr_work")
+    args = webapp.ocr_args_from_form({}, work_dir)
+    webapp.run_pipeline("brokenbook", str(tmp_path / "input" / "brokenbook.pdf"), args)
 
     state = webapp.PROGRESS["brokenbook"]
     assert state["finished"] is True
