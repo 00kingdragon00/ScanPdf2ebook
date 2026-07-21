@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import re
 import threading
 
 from flask import Flask, redirect, render_template, request, send_from_directory, url_for
 
 import main as pipeline
+import video
 
 app = Flask(__name__)
 
@@ -50,18 +52,43 @@ def find_input_pdf(book_name):
     return candidate if os.path.exists(candidate) else None
 
 
-def run_pipeline(book_name, pdf_path, args):
+YOUTUBE_ID_RE = re.compile(r"(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{6,})")
+
+
+def book_name_from_youtube_url(url):
+    m = YOUTUBE_ID_RE.search(url)
+    return m.group(1) if m else "youtube-video"
+
+
+def run_pipeline(book_name, source_kind, source_value, args):
     os.makedirs(args.work_dir, exist_ok=True)
 
     with PROGRESS_LOCK:
-        PROGRESS[book_name] = {"done": 0, "total": 0, "finished": False, "error": None}
+        PROGRESS[book_name] = {
+            "done": 0,
+            "total": 0,
+            "finished": False,
+            "error": None,
+            "phase": "downloading" if source_kind == "youtube" else "ocr",
+        }
 
     try:
-        image_paths = pipeline.render_pages(
-            pdf_path, os.path.join(args.work_dir, "pages"), args.dpi
-        )
+        if source_kind == "youtube":
+            def on_phase(phase):
+                with PROGRESS_LOCK:
+                    PROGRESS[book_name]["phase"] = phase
+
+            image_paths = video.extract_pages_from_youtube(
+                source_value, args.work_dir, phase_cb=on_phase
+            )
+        else:
+            image_paths = pipeline.render_pages(
+                source_value, os.path.join(args.work_dir, "pages"), args.dpi
+            )
+
         with PROGRESS_LOCK:
             PROGRESS[book_name]["total"] = len(image_paths)
+            PROGRESS[book_name]["phase"] = "ocr"
 
         def on_page_done(i, total):
             with PROGRESS_LOCK:
@@ -85,21 +112,33 @@ def upload_form():
 @app.route("/upload", methods=["POST"])
 def upload():
     f = request.files.get("pdf")
-    if f is None or f.filename == "":
-        return "No file uploaded", 400
-    if not f.filename.lower().endswith(".pdf"):
-        return "Only .pdf files are accepted", 400
+    has_file = f is not None and f.filename != ""
+    youtube_url = (request.form.get("youtube_url") or "").strip()
 
-    os.makedirs(INPUT_DIR, exist_ok=True)
-    filename = os.path.basename(f.filename)
-    pdf_path = os.path.join(INPUT_DIR, filename)
-    f.save(pdf_path)
+    if has_file and youtube_url:
+        return "Provide either a PDF file or a YouTube URL, not both", 400
+    if not has_file and not youtube_url:
+        return "No file or YouTube URL provided", 400
 
-    book_name = os.path.splitext(filename)[0]
+    if has_file:
+        if not f.filename.lower().endswith(".pdf"):
+            return "Only .pdf files are accepted", 400
+        os.makedirs(INPUT_DIR, exist_ok=True)
+        filename = os.path.basename(f.filename)
+        pdf_path = os.path.join(INPUT_DIR, filename)
+        f.save(pdf_path)
+        book_name = os.path.splitext(filename)[0]
+        source_kind, source_value = "pdf", pdf_path
+    else:
+        book_name = book_name_from_youtube_url(youtube_url)
+        source_kind, source_value = "youtube", youtube_url
+
     work_dir = os.path.join(OUTPUT_DIR, book_name, "ocr_work")
     args = ocr_args_from_form(request.form, work_dir)
 
-    thread = threading.Thread(target=run_pipeline, args=(book_name, pdf_path, args), daemon=True)
+    thread = threading.Thread(
+        target=run_pipeline, args=(book_name, source_kind, source_value, args), daemon=True
+    )
     thread.start()
 
     return redirect(url_for("progress_page", book=book_name))
@@ -115,7 +154,7 @@ def status(book):
     with PROGRESS_LOCK:
         state = PROGRESS.get(book)
         if state is None:
-            return {"done": 0, "total": 0, "finished": False}
+            return {"done": 0, "total": 0, "finished": False, "phase": None}
         return dict(state)
 
 
