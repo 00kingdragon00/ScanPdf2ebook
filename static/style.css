@@ -135,6 +135,29 @@ button:disabled {
   margin-top: 0.75rem;
 }
 
+.source-divider {
+  text-align: center;
+  color: var(--text-muted);
+  margin: 1rem 0;
+}
+
+.youtube-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.youtube-field input {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 1rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
 .actions {
   display: flex;
   gap: 0.75rem;

@@ -6,10 +6,16 @@
     <h1>Upload a scanned PDF</h1>
     <form action="/upload" method="post" enctype="multipart/form-data">
       <div class="dropzone" id="dropzone">
-        <input type="file" name="pdf" id="pdf-input" accept="application/pdf" required>
+        <input type="file" name="pdf" id="pdf-input" accept="application/pdf">
         <span>Drop a PDF here, or choose a file above</span>
         <div class="filename" id="filename"></div>
       </div>
+
+      <p class="source-divider">or</p>
+
+      <label class="youtube-field">YouTube URL (screen-recording of an ebook)
+        <input type="url" name="youtube_url" id="youtube-url-input" placeholder="https://www.youtube.com/watch?v=...">
+      </label>
       <p class="actions">
         <button type="button" class="btn-secondary" id="open-settings">Settings</button>
         <button type="submit">Upload &amp; start OCR</button>
@@ -69,6 +75,17 @@ document.getElementById("close-settings").addEventListener("click", () => dialog
 const dropzone = document.getElementById("dropzone");
 const input = document.getElementById("pdf-input");
 const filename = document.getElementById("filename");
+const urlInput = document.getElementById("youtube-url-input");
+
+function syncInputs() {
+  if (urlInput.value.trim()) {
+    input.removeAttribute("required");
+  } else if (!input.files.length) {
+    // neither provided yet; leave both optional client-side, server enforces the real rule
+  }
+}
+urlInput.addEventListener("input", syncInputs);
+input.addEventListener("change", syncInputs);
 
 function showName() {
   filename.textContent = input.files.length ? input.files[0].name : "";

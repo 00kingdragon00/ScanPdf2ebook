@@ -27,7 +27,11 @@ async function poll() {
       window.location.href = "/review/{{ book }}";
     }
   } else {
-    status.textContent = "Page " + data.done + "/" + data.total + " (" + pct + "%)";
+    const phaseLabels = {
+      "downloading": "Downloading video...",
+      "extracting frames": "Extracting frames...",
+    };
+    status.textContent = phaseLabels[data.phase] || ("Page " + data.done + "/" + data.total + " (" + pct + "%)");
     setTimeout(poll, 2000);
   }
 }
