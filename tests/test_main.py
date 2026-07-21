@@ -61,6 +61,22 @@ def test_build_clean_markdown_reports_missing_pages(tmp_path):
     assert "Second page content." in md
 
 
+def test_build_clean_markdown_detects_title_from_first_present_page(tmp_path):
+    work_dir = tmp_path
+    raw_dir = work_dir / "raw"
+    raw_dir.mkdir()
+    # page 1's raw file is missing (OCR failed even after retry)
+    (raw_dir / "page_0002.txt").write_text(PAGE2_RAW, encoding="utf-8")
+
+    image_paths = ["page_0001.png", "page_0002.png"]
+    md, detected_title, missing = main.build_clean_markdown(image_paths, str(work_dir))
+
+    assert missing == [1]
+    assert detected_title == "Chapter Two"
+    assert "# Chapter Two" in md
+    assert "Second page content." in md
+
+
 def test_ocr_all_pages_calls_progress_cb_per_page(tmp_path, monkeypatch):
     def fake_ocr_page(image_path, args):
         return "<|det|>text [0, 0, 10, 10]<|/det|>fake page text\n", None

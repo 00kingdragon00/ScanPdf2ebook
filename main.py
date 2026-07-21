@@ -201,9 +201,11 @@ def blocks_to_markdown(blocks, detect_title=True):
     return "\n".join(md), detected_title
 
 
-def build_page_markdown(page_num, raw_text):
+def build_page_markdown(page_num, raw_text, detect_title=None):
+    if detect_title is None:
+        detect_title = page_num == 1
     blocks = parse_blocks(raw_text)
-    return blocks_to_markdown(blocks, detect_title=(page_num == 1))
+    return blocks_to_markdown(blocks, detect_title=detect_title)
 
 
 def build_clean_markdown(image_paths, work_dir):
@@ -211,13 +213,18 @@ def build_clean_markdown(image_paths, work_dir):
     page_mds = []
     missing = []
     detected_title = None
+    seen_first_present_page = False
     for i in range(1, len(image_paths) + 1):
         raw_path = os.path.join(raw_dir, f"page_{i:04d}.txt")
         if not os.path.exists(raw_path):
             missing.append(i)
             continue
         with open(raw_path, "r", encoding="utf-8") as f:
-            page_md, page_title = build_page_markdown(i, f.read())
+            is_first_present_page = not seen_first_present_page
+            seen_first_present_page = True
+            page_md, page_title = build_page_markdown(
+                i, f.read(), detect_title=is_first_present_page
+            )
         if page_title and detected_title is None:
             detected_title = page_title
         page_mds.append(page_md)
