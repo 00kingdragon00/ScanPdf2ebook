@@ -1,4 +1,4 @@
-#!/usr/bin/env python3dds
+#!/usr/bin/env python3
 import argparse
 import os
 import re
@@ -108,7 +108,7 @@ def has_repetition_loop(text):
     return tag_count > REPETITION_TAG_THRESHOLD or truncated
 
 
-def ocr_all_pages(image_paths, work_dir, args):
+def ocr_all_pages(image_paths, work_dir, args, progress_cb=None):
     raw_dir = os.path.join(work_dir, "raw")
     os.makedirs(raw_dir, exist_ok=True)
 
@@ -116,6 +116,8 @@ def ocr_all_pages(image_paths, work_dir, args):
         raw_path = os.path.join(raw_dir, f"page_{i:04d}.txt")
         if args.resume and os.path.exists(raw_path) and os.path.getsize(raw_path) > 0:
             print(f"[{i}/{len(image_paths)}] cached, skipping")
+            if progress_cb:
+                progress_cb(i, len(image_paths))
             continue
 
         print(f"[{i}/{len(image_paths)}] OCR {img_path} ...", end=" ", flush=True)
@@ -129,11 +131,13 @@ def ocr_all_pages(image_paths, work_dir, args):
         if text is None:
             print("FAILED")
             print(f"    error: {err}", file=sys.stderr)
-            continue
+        else:
+            with open(raw_path, "w", encoding="utf-8") as f:
+                f.write(text)
+            print("ok")
 
-        with open(raw_path, "w", encoding="utf-8") as f:
-            f.write(text)
-        print("ok")
+        if progress_cb:
+            progress_cb(i, len(image_paths))
 
 
 # ---------- clean raw OCR -> markdown ----------
@@ -164,10 +168,10 @@ def parse_blocks(raw_text):
     return blocks
 
 
-def blocks_to_markdown(blocks):
+def blocks_to_markdown(blocks, detect_title=True):
     md = []
     first_title_group = []
-    collecting_first_title = True
+    collecting_first_title = detect_title
     detected_title = None
 
     for btype, text in blocks:
@@ -190,26 +194,34 @@ def blocks_to_markdown(blocks):
         else:
             md.append(f"{text}\n")
 
-    if first_title_group and detected_title is None:
+    if detect_title and first_title_group and detected_title is None:
         detected_title = " ".join(first_title_group)
         md.append(f"# {detected_title}\n")
 
     return "\n".join(md), detected_title
 
 
+def build_page_markdown(page_num, raw_text):
+    blocks = parse_blocks(raw_text)
+    return blocks_to_markdown(blocks, detect_title=(page_num == 1))
+
+
 def build_clean_markdown(image_paths, work_dir):
     raw_dir = os.path.join(work_dir, "raw")
-    all_blocks = []
+    page_mds = []
     missing = []
+    detected_title = None
     for i in range(1, len(image_paths) + 1):
         raw_path = os.path.join(raw_dir, f"page_{i:04d}.txt")
         if not os.path.exists(raw_path):
             missing.append(i)
             continue
         with open(raw_path, "r", encoding="utf-8") as f:
-            all_blocks.extend(parse_blocks(f.read()))
-    md, detected_title = blocks_to_markdown(all_blocks)
-    return md, detected_title, missing
+            page_md, page_title = build_page_markdown(i, f.read())
+        if page_title and detected_title is None:
+            detected_title = page_title
+        page_mds.append(page_md)
+    return "\n".join(page_mds), detected_title, missing
 
 
 # ---------- markdown -> epub ----------
