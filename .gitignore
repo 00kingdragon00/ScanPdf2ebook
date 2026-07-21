@@ -1,6 +1,6 @@
 models/
 llama.cpp/
-
+docs/
 __pycache__/
 *.py[cod]
 .venv/
@@ -9,4 +9,5 @@ __pycache__/
 *.pdf
 *.epub
 output/
+input/
 ocr_work/
