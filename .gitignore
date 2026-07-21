@@ -11,3 +11,4 @@ __pycache__/
 output/
 input/
 ocr_work/
+*.egg-info/

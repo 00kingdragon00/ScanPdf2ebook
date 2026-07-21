@@ -10,10 +10,61 @@
         <span>Drop a PDF here, or choose a file above</span>
         <div class="filename" id="filename"></div>
       </div>
-      <p><button type="submit">Upload &amp; start OCR</button></p>
+      <p class="actions">
+        <button type="button" class="btn-secondary" id="open-settings">Settings</button>
+        <button type="submit">Upload &amp; start OCR</button>
+      </p>
+
+      <dialog id="settings-dialog">
+        <h2>OCR settings</h2>
+        <div class="settings-grid">
+          <label>llama.cpp binary
+            <input type="text" name="llama_bin" value="llama.cpp/build/bin/llama-mtmd-cli">
+          </label>
+          <label>Model (GGUF)
+            <input type="text" name="model" value="models/baidu.Unlimited-OCR.Q8_0.gguf">
+          </label>
+          <label>mmproj (GGUF)
+            <input type="text" name="mmproj" value="models/mmproj-baidu.Unlimited-OCR.f16.gguf">
+          </label>
+          <label>Page render DPI
+            <input type="number" name="dpi" value="200">
+          </label>
+          <label>GPU layers (0 = CPU only)
+            <input type="number" name="gpu_layers" value="10">
+          </label>
+          <label>Context size
+            <input type="number" name="context" value="6144">
+          </label>
+          <label>Max tokens per page
+            <input type="number" name="max_tokens" value="4096">
+          </label>
+          <label>Temperature
+            <input type="number" step="0.01" name="temp" value="0.2">
+          </label>
+          <label>DRY multiplier
+            <input type="number" step="0.01" name="dry_multiplier" value="1.2">
+          </label>
+          <label>DRY allowed length
+            <input type="number" name="dry_allowed_length" value="8">
+          </label>
+          <label>DRY penalty last-n
+            <input type="number" name="dry_penalty_last_n" value="256">
+          </label>
+          <label>Timeout per page (seconds)
+            <input type="number" name="timeout" value="300">
+          </label>
+        </div>
+        <p class="actions"><button type="button" class="btn-secondary" id="close-settings">Done</button></p>
+      </dialog>
     </form>
   </div>
 </div>
+<script>
+const dialog = document.getElementById("settings-dialog");
+document.getElementById("open-settings").addEventListener("click", () => dialog.showModal());
+document.getElementById("close-settings").addEventListener("click", () => dialog.close());
+</script>
 <script>
 const dropzone = document.getElementById("dropzone");
 const input = document.getElementById("pdf-input");

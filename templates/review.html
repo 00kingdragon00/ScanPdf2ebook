@@ -14,6 +14,12 @@
         <label>Author
           <input type="text" name="author" value="Unknown">
         </label>
+        <label>Cover page #
+          <input type="number" name="cover_page" min="1" placeholder="none">
+        </label>
+        <label>TOC depth
+          <input type="number" name="toc_depth" value="1" min="1" max="6">
+        </label>
         <span class="approval-count" id="approval-count">0 / {{ pages|length }} approved</span>
       </div>
     </div>

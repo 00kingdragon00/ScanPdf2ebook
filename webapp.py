@@ -16,36 +16,50 @@ PROGRESS = {}
 PROGRESS_LOCK = threading.Lock()
 
 
-def default_ocr_args(work_dir):
-    # mirrors main.py's CLI argparse defaults (main.py:252-277)
-    return argparse.Namespace(
-        llama_bin="llama.cpp/build/bin/llama-mtmd-cli",
-        model="models/baidu.Unlimited-OCR.Q8_0.gguf",
-        mmproj="models/mmproj-baidu.Unlimited-OCR.f16.gguf",
-        dpi=200,
-        gpu_layers=10,
-        context=6144,
-        max_tokens=4096,
-        temp=0.2,
-        dry_multiplier=1.2,
-        dry_allowed_length=8,
-        dry_penalty_last_n=256,
-        timeout=300,
-        resume=False,
-        work_dir=work_dir,
-    )
+# name -> (default, type). Defaults match what used to be main.py's CLI
+# argparse defaults; now the user overrides them via the upload page's
+# settings dialog instead of CLI flags.
+OCR_SETTINGS = {
+    "llama_bin": ("llama.cpp/build/bin/llama-mtmd-cli", str),
+    "model": ("models/baidu.Unlimited-OCR.Q8_0.gguf", str),
+    "mmproj": ("models/mmproj-baidu.Unlimited-OCR.f16.gguf", str),
+    "dpi": (200, int),
+    "gpu_layers": (10, int),
+    "context": (6144, int),
+    "max_tokens": (4096, int),
+    "temp": (0.2, float),
+    "dry_multiplier": (1.2, float),
+    "dry_allowed_length": (8, int),
+    "dry_penalty_last_n": (256, int),
+    "timeout": (300, int),
+}
 
 
-def run_pipeline(book_name, pdf_path):
-    work_dir = os.path.join(OUTPUT_DIR, book_name, "ocr_work")
-    os.makedirs(work_dir, exist_ok=True)
-    args = default_ocr_args(work_dir)
+def ocr_args_from_form(form, work_dir):
+    values = {}
+    for key, (default, cast) in OCR_SETTINGS.items():
+        raw = form.get(key)
+        values[key] = cast(raw) if raw not in (None, "") else default
+    values["resume"] = False
+    values["work_dir"] = work_dir
+    return argparse.Namespace(**values)
+
+
+def find_input_pdf(book_name):
+    candidate = os.path.join(INPUT_DIR, book_name + ".pdf")
+    return candidate if os.path.exists(candidate) else None
+
+
+def run_pipeline(book_name, pdf_path, args):
+    os.makedirs(args.work_dir, exist_ok=True)
 
     with PROGRESS_LOCK:
         PROGRESS[book_name] = {"done": 0, "total": 0, "finished": False, "error": None}
 
     try:
-        image_paths = pipeline.render_pages(pdf_path, os.path.join(work_dir, "pages"), args.dpi)
+        image_paths = pipeline.render_pages(
+            pdf_path, os.path.join(args.work_dir, "pages"), args.dpi
+        )
         with PROGRESS_LOCK:
             PROGRESS[book_name]["total"] = len(image_paths)
 
@@ -54,7 +68,7 @@ def run_pipeline(book_name, pdf_path):
                 PROGRESS[book_name]["done"] = i
                 PROGRESS[book_name]["total"] = total
 
-        pipeline.ocr_all_pages(image_paths, work_dir, args, progress_cb=on_page_done)
+        pipeline.ocr_all_pages(image_paths, args.work_dir, args, progress_cb=on_page_done)
     except Exception as exc:
         with PROGRESS_LOCK:
             PROGRESS[book_name]["error"] = str(exc)
@@ -82,7 +96,10 @@ def upload():
     f.save(pdf_path)
 
     book_name = os.path.splitext(filename)[0]
-    thread = threading.Thread(target=run_pipeline, args=(book_name, pdf_path), daemon=True)
+    work_dir = os.path.join(OUTPUT_DIR, book_name, "ocr_work")
+    args = ocr_args_from_form(request.form, work_dir)
+
+    thread = threading.Thread(target=run_pipeline, args=(book_name, pdf_path, args), daemon=True)
     thread.start()
 
     return redirect(url_for("progress_page", book=book_name))
@@ -168,12 +185,25 @@ def convert(book):
 
     title = request.form.get("title") or "Untitled"
     author = request.form.get("author") or "Unknown"
+    toc_depth = int(request.form.get("toc_depth") or 1)
     output_path = os.path.join(OUTPUT_DIR, f"{book}.epub")
 
-    pipeline.build_epub(md_path, output_path, title, author, toc_depth=1)
+    cover_path = None
+    cover_page_raw = request.form.get("cover_page")
+    if cover_page_raw:
+        pdf_path = find_input_pdf(book)
+        if pdf_path:
+            cover_path = os.path.join(work_dir, "cover.png")
+            pipeline.render_cover(pdf_path, int(cover_page_raw), cover_path)
+
+    pipeline.build_epub(md_path, output_path, title, author, toc_depth, cover_path)
 
     return render_template("done.html", book=book, output_path=output_path)
 
 
-if __name__ == "__main__":
+def main():
     app.run(debug=True)
+
+
+if __name__ == "__main__":
+    main()
