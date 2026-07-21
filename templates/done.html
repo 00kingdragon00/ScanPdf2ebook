@@ -1,5 +1,11 @@
 <!doctype html>
 <title>Done</title>
-<h1>EPUB ready</h1>
-<p>{{ book }} converted successfully.</p>
-<p>Saved to: {{ output_path }}</p>
+<link rel="stylesheet" href="/static/style.css">
+<div class="page">
+  <div class="card">
+    <div class="success-icon">✓</div>
+    <h1>EPUB ready</h1>
+    <p>{{ book }} converted successfully.</p>
+    <p>Saved to: <code class="path">{{ output_path }}</code></p>
+  </div>
+</div>

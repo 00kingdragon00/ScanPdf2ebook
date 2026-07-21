@@ -1,7 +1,45 @@
 <!doctype html>
 <title>Upload book</title>
-<h1>Upload a scanned PDF</h1>
-<form action="/upload" method="post" enctype="multipart/form-data">
-  <input type="file" name="pdf" accept="application/pdf" required>
-  <button type="submit">Upload &amp; start OCR</button>
-</form>
+<link rel="stylesheet" href="/static/style.css">
+<div class="page">
+  <div class="card">
+    <h1>Upload a scanned PDF</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <div class="dropzone" id="dropzone">
+        <input type="file" name="pdf" id="pdf-input" accept="application/pdf" required>
+        <span>Drop a PDF here, or choose a file above</span>
+        <div class="filename" id="filename"></div>
+      </div>
+      <p><button type="submit">Upload &amp; start OCR</button></p>
+    </form>
+  </div>
+</div>
+<script>
+const dropzone = document.getElementById("dropzone");
+const input = document.getElementById("pdf-input");
+const filename = document.getElementById("filename");
+
+function showName() {
+  filename.textContent = input.files.length ? input.files[0].name : "";
+}
+input.addEventListener("change", showName);
+
+["dragenter", "dragover"].forEach(evt =>
+  dropzone.addEventListener(evt, e => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  })
+);
+["dragleave", "drop"].forEach(evt =>
+  dropzone.addEventListener(evt, e => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+  })
+);
+dropzone.addEventListener("drop", e => {
+  if (e.dataTransfer.files.length) {
+    input.files = e.dataTransfer.files;
+    showName();
+  }
+});
+</script>

@@ -1,19 +1,33 @@
 <!doctype html>
 <title>OCR in progress</title>
-<h1>OCR in progress: {{ book }}</h1>
-<p id="status">Starting...</p>
+<link rel="stylesheet" href="/static/style.css">
+<div class="page">
+  <div class="card">
+    <h1>OCR in progress: {{ book }}</h1>
+    <div class="progress-track">
+      <div class="progress-fill" id="fill"></div>
+    </div>
+    <p class="progress-label" id="status">Starting...</p>
+  </div>
+</div>
 <script>
 async function poll() {
   const res = await fetch("/status/{{ book }}");
   const data = await res.json();
-  document.getElementById("status").textContent = "Page " + data.done + "/" + data.total;
+  const status = document.getElementById("status");
+  const fill = document.getElementById("fill");
+  const pct = data.total ? Math.round((data.done / data.total) * 100) : 0;
+  fill.style.width = pct + "%";
+
   if (data.finished) {
     if (data.error) {
-      document.getElementById("status").textContent = "OCR failed: " + data.error;
+      status.textContent = "OCR failed: " + data.error;
+      status.classList.add("progress-error");
     } else {
       window.location.href = "/review/{{ book }}";
     }
   } else {
+    status.textContent = "Page " + data.done + "/" + data.total + " (" + pct + "%)";
     setTimeout(poll, 2000);
   }
 }

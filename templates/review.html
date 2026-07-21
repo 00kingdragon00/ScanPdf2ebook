@@ -1,34 +1,64 @@
 <!doctype html>
 <title>Review: {{ book }}</title>
-<h1>Review OCR: {{ book }}</h1>
-<form id="convert-form" action="/convert/{{ book }}" method="post">
-  <input type="hidden" name="total" value="{{ pages|length }}">
-  <p>
-    Title: <input type="text" name="title" value="{{ detected_title }}">
-    Author: <input type="text" name="author" value="Unknown">
-  </p>
+<link rel="stylesheet" href="/static/style.css">
+<div class="page">
+  <form id="convert-form" action="/convert/{{ book }}" method="post">
+    <input type="hidden" name="total" value="{{ pages|length }}">
 
-  {% for page in pages %}
-  <fieldset>
-    <legend>Page {{ page.num }}{% if page.failed %} — OCR FAILED{% endif %}</legend>
-    <img src="/pages/{{ book }}/{{ page.image }}" width="300">
-    <textarea name="text_{{ page.num }}" rows="10" cols="80">{{ page.text }}</textarea>
-    <label>
-      <input type="checkbox" class="approve-box" name="approved_{{ page.num }}">
-      Approved
-    </label>
-  </fieldset>
-  {% endfor %}
+    <div class="review-header">
+      <h1>Review OCR: {{ book }}</h1>
+      <div class="review-meta">
+        <label>Title
+          <input type="text" name="title" value="{{ detected_title }}">
+        </label>
+        <label>Author
+          <input type="text" name="author" value="Unknown">
+        </label>
+        <span class="approval-count" id="approval-count">0 / {{ pages|length }} approved</span>
+      </div>
+    </div>
 
-  <button type="submit" id="convert-btn" disabled>Convert to EPUB</button>
-</form>
+    {% for page in pages %}
+    <div class="page-block{% if page.failed %} failed{% endif %}" data-page-block>
+      <img src="/pages/{{ book }}/{{ page.image }}" alt="Page {{ page.num }}">
+      <div class="page-body">
+        <div class="page-heading">
+          <span>Page {{ page.num }}</span>
+          {% if page.failed %}<span class="badge-failed">OCR FAILED</span>{% endif %}
+        </div>
+        <textarea name="text_{{ page.num }}" rows="10">{{ page.text }}</textarea>
+        <label class="approve-label">
+          <input type="checkbox" class="approve-box" name="approved_{{ page.num }}">
+          Approved
+        </label>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="convert-bar">
+      <span class="approval-count" id="approval-count-bottom">0 / {{ pages|length }} approved</span>
+      <button type="submit" id="convert-btn" disabled>Convert to EPUB</button>
+    </div>
+  </form>
+</div>
 
 <script>
 const boxes = document.querySelectorAll(".approve-box");
 const btn = document.getElementById("convert-btn");
+const countTop = document.getElementById("approval-count");
+const countBottom = document.getElementById("approval-count-bottom");
+
 function refresh() {
-  btn.disabled = !Array.from(boxes).every(b => b.checked);
+  const approved = Array.from(boxes).filter(b => b.checked).length;
+  const total = boxes.length;
+  countTop.textContent = approved + " / " + total + " approved";
+  countBottom.textContent = approved + " / " + total + " approved";
+  btn.disabled = approved !== total;
 }
-boxes.forEach(b => b.addEventListener("change", refresh));
+
+boxes.forEach(b => b.addEventListener("change", e => {
+  e.target.closest("[data-page-block]").classList.toggle("approved", e.target.checked);
+  refresh();
+}));
 refresh();
 </script>
