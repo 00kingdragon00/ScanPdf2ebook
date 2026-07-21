@@ -1,0 +1,6 @@
+models/
+llama.cpp/
+
+__pycache__/
+*.py[cod]
+.venv/

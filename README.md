@@ -1,0 +1,40 @@
+# ScanPdf2ebook
+
+Scanned PDF -> OCR (llama.cpp Unlimited-OCR) -> EPUB, one command.
+
+## Requirements
+
+- `pip install pymupdf` (or `uv sync`)
+- `pandoc` (`apt install pandoc`)
+- llama.cpp build (PR #17400 branch) with an Unlimited-OCR GGUF quant + mmproj file
+
+## Usage
+
+```bash
+python3 main.py mybook.pdf -o mybook.epub \
+    --model ./models/Unlimited-OCR-Q8_0.gguf \
+    --mmproj ./models/mmproj-Unlimited-OCR-F16.gguf \
+    --title "My Book Title" --author "Author Name" \
+    --gpu-layers 10 --cover-page 1
+```
+
+Resume after a crash/interrupt (only re-OCRs missing pages):
+
+```bash
+python3 main.py mybook.pdf -o mybook.epub --resume \
+    --model ./models/Unlimited-OCR-Q8_0.gguf \
+    --mmproj ./models/mmproj-Unlimited-OCR-F16.gguf
+```
+
+## Key options
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `-o, --output` | `<pdf-name>.epub` | output EPUB path |
+| `--title` | auto-detected | book title |
+| `--author` | `Unknown` | book author |
+| `--dpi` | `200` | page render DPI |
+| `--gpu-layers, -ngl` | `10` | GPU layers (0 = CPU only) |
+| `--context, -c` | `6144` | context size |
+| `--work-dir` | `./ocr_work` | cache dir (page images + raw OCR) |
+| `--cover-page` | none | PDF page number to use as cover |

@@ -1,0 +1,8 @@
+[project]
+name = "scanpdftoepub"
+version = "0.1.0"
+description = "Scanned PDF -> OCR -> EPUB pipeline"
+requires-python = ">=3.12"
+dependencies = [
+    "pymupdf",
+]
