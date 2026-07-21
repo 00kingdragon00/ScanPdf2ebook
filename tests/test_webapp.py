@@ -148,6 +148,30 @@ def test_convert_rejects_when_not_all_pages_approved(client, tmp_path):
     assert resp.status_code == 400
 
 
+def test_convert_ignores_client_supplied_total_and_uses_real_page_count(client, tmp_path):
+    # Vulnerability repro: 3 real pages on disk, client lies with total=1 and only
+    # approves page 1. Server must derive total from disk (3), not trust the form,
+    # so pages 2 and 3 are still checked and the unapproved page is caught.
+    book = "convertbook3"
+    _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>one\n")
+    _write_page_fixture(tmp_path, book, 2, raw_text="<|det|>text [0,0,1,1]<|/det|>two\n")
+    _write_page_fixture(tmp_path, book, 3, raw_text="<|det|>text [0,0,1,1]<|/det|>three\n")
+
+    resp = client.post(f"/convert/{book}", data={
+        "total": "1",  # lie: claim only 1 page exists
+        "title": "T", "author": "A",
+        "text_1": "one", "approved_1": "on",
+        # page 2 and 3 omitted/not approved
+    })
+    assert resp.status_code == 400
+    assert b"Page 2" in resp.data
+
+
+def test_convert_returns_400_when_pages_dir_missing(client):
+    resp = client.post("/convert/no-such-book", data={"title": "T", "author": "A"})
+    assert resp.status_code == 400
+
+
 def test_convert_builds_epub_from_edited_text_when_all_approved(client, tmp_path, monkeypatch):
     book = "convertbook2"
     _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>original\n")

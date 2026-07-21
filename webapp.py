@@ -139,7 +139,12 @@ def page_image(book, filename):
 
 @app.route("/convert/<book>", methods=["POST"])
 def convert(book):
-    total = int(request.form["total"])
+    pages_dir = os.path.join(OUTPUT_DIR, book, "ocr_work", "pages")
+    if not os.path.isdir(pages_dir):
+        return "Unknown book", 400
+    total = len([n for n in os.listdir(pages_dir) if n.endswith(".png")])
+    if total == 0:
+        return "No pages found", 400
 
     texts = []
     for i in range(1, total + 1):
