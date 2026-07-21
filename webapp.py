@@ -198,7 +198,12 @@ def convert(book):
 
     pipeline.build_epub(md_path, output_path, title, author, toc_depth, cover_path)
 
-    return render_template("done.html", book=book, output_path=output_path)
+    return render_template("done.html", book=book)
+
+
+@app.route("/download/<book>.epub")
+def download(book):
+    return send_from_directory(OUTPUT_DIR, f"{book}.epub", as_attachment=True)
 
 
 def main():

@@ -20,6 +20,7 @@
         <label>TOC depth
           <input type="number" name="toc_depth" value="1" min="1" max="6">
         </label>
+        <button type="button" class="btn-secondary" id="approve-all">Approve all</button>
         <span class="approval-count" id="approval-count">0 / {{ pages|length }} approved</span>
       </div>
     </div>
@@ -66,5 +67,14 @@ boxes.forEach(b => b.addEventListener("change", e => {
   e.target.closest("[data-page-block]").classList.toggle("approved", e.target.checked);
   refresh();
 }));
+
+document.getElementById("approve-all").addEventListener("click", () => {
+  boxes.forEach(b => {
+    b.checked = true;
+    b.closest("[data-page-block]").classList.add("approved");
+  });
+  refresh();
+});
+
 refresh();
 </script>
