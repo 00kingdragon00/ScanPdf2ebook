@@ -36,6 +36,19 @@ python3 main.py mybook.pdf --resume \
     --mmproj ./models/mmproj-Unlimited-OCR-F16.gguf
 ```
 
+## Web UI
+
+Upload a PDF, watch OCR run, review/edit every page against its source image, then convert:
+
+```bash
+uv run python webapp.py
+```
+
+Open `http://127.0.0.1:5000/`. Uploaded PDFs are saved to `input/<name>.pdf`. The
+review page won't let you convert until every page is checked "Approved" (enforced
+server-side, not just in the browser). Pages where OCR failed show an empty,
+still-editable block flagged "OCR FAILED" instead of being hidden.
+
 ## Key options
 
 | Flag | Default | Meaning |
