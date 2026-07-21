@@ -56,7 +56,7 @@ def test_run_pipeline_updates_progress_and_writes_raw_files(tmp_path, monkeypatc
     webapp.run_pipeline("tinybook", pdf_path)
 
     state = webapp.PROGRESS["tinybook"]
-    assert state == {"done": 2, "total": 2, "finished": True}
+    assert state == {"done": 2, "total": 2, "finished": True, "error": None}
 
     raw_dir = os.path.join(str(tmp_path / "output"), "tinybook", "ocr_work", "raw")
     assert os.path.exists(os.path.join(raw_dir, "page_0001.txt"))
@@ -64,9 +64,9 @@ def test_run_pipeline_updates_progress_and_writes_raw_files(tmp_path, monkeypatc
 
 
 def test_status_endpoint_returns_progress(client):
-    webapp.PROGRESS["somebook"] = {"done": 3, "total": 10, "finished": False}
+    webapp.PROGRESS["somebook"] = {"done": 3, "total": 10, "finished": False, "error": None}
     resp = client.get("/status/somebook")
-    assert resp.get_json() == {"done": 3, "total": 10, "finished": False}
+    assert resp.get_json() == {"done": 3, "total": 10, "finished": False, "error": None}
 
 
 def test_status_endpoint_unknown_book_returns_zero_state(client):
@@ -78,3 +78,21 @@ def test_progress_page_loads(client):
     resp = client.get("/progress/somebook")
     assert resp.status_code == 200
     assert b"somebook" in resp.data
+
+
+def test_run_pipeline_records_error_and_finishes_on_exception(tmp_path, monkeypatch):
+    monkeypatch.setattr(webapp, "INPUT_DIR", str(tmp_path / "input"))
+    monkeypatch.setattr(webapp, "OUTPUT_DIR", str(tmp_path / "output"))
+    webapp.PROGRESS.clear()
+
+    def fake_render_pages(pdf_path, out_dir, dpi):
+        raise RuntimeError("corrupt pdf")
+
+    monkeypatch.setattr(webapp.pipeline, "render_pages", fake_render_pages)
+
+    webapp.run_pipeline("brokenbook", str(tmp_path / "input" / "brokenbook.pdf"))
+
+    state = webapp.PROGRESS["brokenbook"]
+    assert state["finished"] is True
+    assert state["error"] is not None
+    assert "corrupt pdf" in state["error"]

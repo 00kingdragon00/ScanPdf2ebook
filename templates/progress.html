@@ -8,7 +8,11 @@ async function poll() {
   const data = await res.json();
   document.getElementById("status").textContent = "Page " + data.done + "/" + data.total;
   if (data.finished) {
-    window.location.href = "/review/{{ book }}";
+    if (data.error) {
+      document.getElementById("status").textContent = "OCR failed: " + data.error;
+    } else {
+      window.location.href = "/review/{{ book }}";
+    }
   } else {
     setTimeout(poll, 2000);
   }

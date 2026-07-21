@@ -31,7 +31,7 @@ def default_ocr_args(work_dir):
         dry_allowed_length=8,
         dry_penalty_last_n=256,
         timeout=300,
-        resume=True,
+        resume=False,
         work_dir=work_dir,
     )
 
@@ -41,19 +41,26 @@ def run_pipeline(book_name, pdf_path):
     os.makedirs(work_dir, exist_ok=True)
     args = default_ocr_args(work_dir)
 
-    image_paths = pipeline.render_pages(pdf_path, os.path.join(work_dir, "pages"), args.dpi)
     with PROGRESS_LOCK:
-        PROGRESS[book_name] = {"done": 0, "total": len(image_paths), "finished": False}
+        PROGRESS[book_name] = {"done": 0, "total": 0, "finished": False, "error": None}
 
-    def on_page_done(i, total):
+    try:
+        image_paths = pipeline.render_pages(pdf_path, os.path.join(work_dir, "pages"), args.dpi)
         with PROGRESS_LOCK:
-            PROGRESS[book_name]["done"] = i
-            PROGRESS[book_name]["total"] = total
+            PROGRESS[book_name]["total"] = len(image_paths)
 
-    pipeline.ocr_all_pages(image_paths, work_dir, args, progress_cb=on_page_done)
+        def on_page_done(i, total):
+            with PROGRESS_LOCK:
+                PROGRESS[book_name]["done"] = i
+                PROGRESS[book_name]["total"] = total
 
-    with PROGRESS_LOCK:
-        PROGRESS[book_name]["finished"] = True
+        pipeline.ocr_all_pages(image_paths, work_dir, args, progress_cb=on_page_done)
+    except Exception as exc:
+        with PROGRESS_LOCK:
+            PROGRESS[book_name]["error"] = str(exc)
+    finally:
+        with PROGRESS_LOCK:
+            PROGRESS[book_name]["finished"] = True
 
 
 @app.route("/", methods=["GET"])
@@ -90,9 +97,9 @@ def progress_page(book):
 def status(book):
     with PROGRESS_LOCK:
         state = PROGRESS.get(book)
-    if state is None:
-        return {"done": 0, "total": 0, "finished": False}
-    return dict(state)
+        if state is None:
+            return {"done": 0, "total": 0, "finished": False}
+        return dict(state)
 
 
 if __name__ == "__main__":
