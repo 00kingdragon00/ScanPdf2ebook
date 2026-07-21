@@ -3,7 +3,7 @@ import argparse
 import os
 import threading
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, request, send_from_directory, url_for
 
 import main as pipeline
 
@@ -100,6 +100,41 @@ def status(book):
         if state is None:
             return {"done": 0, "total": 0, "finished": False}
         return dict(state)
+
+
+@app.route("/review/<book>")
+def review(book):
+    work_dir = os.path.join(OUTPUT_DIR, book, "ocr_work")
+    pages_dir = os.path.join(work_dir, "pages")
+    raw_dir = os.path.join(work_dir, "raw")
+    total = len([n for n in os.listdir(pages_dir) if n.endswith(".png")])
+
+    pages = []
+    detected_title = None
+    for i in range(1, total + 1):
+        raw_path = os.path.join(raw_dir, f"page_{i:04d}.txt")
+        image_name = f"page_{i:04d}.png"
+        if os.path.exists(raw_path):
+            with open(raw_path, "r", encoding="utf-8") as fh:
+                raw_text = fh.read()
+            md, title = pipeline.build_page_markdown(i, raw_text)
+            if title and detected_title is None:
+                detected_title = title
+            failed = False
+        else:
+            md = ""
+            failed = True
+        pages.append({"num": i, "image": image_name, "text": md, "failed": failed})
+
+    return render_template(
+        "review.html", book=book, pages=pages, detected_title=detected_title or "Untitled"
+    )
+
+
+@app.route("/pages/<book>/<filename>")
+def page_image(book, filename):
+    pages_dir = os.path.join(OUTPUT_DIR, book, "ocr_work", "pages")
+    return send_from_directory(pages_dir, filename)
 
 
 if __name__ == "__main__":

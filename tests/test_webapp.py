@@ -96,3 +96,39 @@ def test_run_pipeline_records_error_and_finishes_on_exception(tmp_path, monkeypa
     assert state["finished"] is True
     assert state["error"] is not None
     assert "corrupt pdf" in state["error"]
+
+
+def _write_page_fixture(tmp_path, book, page_num, raw_text=None):
+    work_dir = tmp_path / "output" / book / "ocr_work"
+    pages_dir = work_dir / "pages"
+    raw_dir = work_dir / "raw"
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (pages_dir / f"page_{page_num:04d}.png").write_bytes(b"\x89PNG\r\n\x1a\n fake png bytes")
+    if raw_text is not None:
+        (raw_dir / f"page_{page_num:04d}.txt").write_text(raw_text, encoding="utf-8")
+
+
+def test_review_page_shows_all_pages_with_text_and_flags_failed(client, tmp_path):
+    book = "reviewbook"
+    _write_page_fixture(tmp_path, book, 1, raw_text=(
+        "<|det|>title [0, 0, 100, 10]<|/det|>Book Title\n"
+        "<|det|>text [0, 10, 100, 20]<|/det|>Page one text.\n"
+    ))
+    _write_page_fixture(tmp_path, book, 2, raw_text=None)  # OCR failed, no raw file
+
+    resp = client.get(f"/review/{book}")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    assert "Page one text." in body
+    assert "OCR FAILED" in body
+    assert "page_0001.png" in body
+    assert "page_0002.png" in body
+
+
+def test_page_image_route_serves_png(client, tmp_path):
+    book = "reviewbook2"
+    _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>x\n")
+    resp = client.get(f"/pages/{book}/page_0001.png")
+    assert resp.status_code == 200
+    assert resp.data.startswith(b"\x89PNG")
