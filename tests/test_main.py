@@ -29,9 +29,10 @@ def test_blocks_to_markdown_detect_title_true_promotes_first_title():
 def test_blocks_to_markdown_detect_title_false_never_promotes():
     blocks = main.parse_blocks(PAGE2_RAW)
     md, title = main.blocks_to_markdown(blocks, detect_title=False)
+    lines = [l.strip() for l in md.splitlines() if l.strip()]
     assert title is None
-    assert "# Chapter Two" not in md
-    assert "## Chapter Two" in md
+    assert "# Chapter Two" not in lines
+    assert "## Chapter Two" in lines
 
 
 def test_build_page_markdown_only_detects_title_on_page_1():
