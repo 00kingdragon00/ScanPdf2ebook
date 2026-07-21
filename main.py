@@ -62,7 +62,7 @@ def ocr_page(image_path, args):
         "deepseek-ocr",
         "--no-jinja",
         "--temp",
-        "0",
+        str(args.temp),
         "--flash-attn",
         "off",
         "--no-warmup",
@@ -73,13 +73,13 @@ def ocr_page(image_path, args):
         "-ngl",
         str(args.gpu_layers),
         "--dry-multiplier",
-        "0.8",
+        str(args.dry_multiplier),
         "--dry-base",
         "1.75",
         "--dry-allowed-length",
-        "35",
+        str(args.dry_allowed_length),
         "--dry-penalty-last-n",
-        "128",
+        str(args.dry_penalty_last_n),
         "--dry-sequence-breaker",
         "none",
     ]
@@ -96,6 +96,18 @@ def ocr_page(image_path, args):
     return result.stdout.strip(), None
 
 
+# Empirically-derived threshold: normal pages produce ~8-20 <|det|> blocks;
+# a degenerate repetition loop was observed producing 65-223. An unclosed
+# trailing tag means generation was cut off by --max-tokens mid-loop.
+REPETITION_TAG_THRESHOLD = 40
+
+
+def has_repetition_loop(text):
+    tag_count = len(re.findall(r"<\|det\|>", text))
+    truncated = text.rfind("<|det|>") > text.rfind("<|/det|>")
+    return tag_count > REPETITION_TAG_THRESHOLD or truncated
+
+
 def ocr_all_pages(image_paths, work_dir, args):
     raw_dir = os.path.join(work_dir, "raw")
     os.makedirs(raw_dir, exist_ok=True)
@@ -108,6 +120,12 @@ def ocr_all_pages(image_paths, work_dir, args):
 
         print(f"[{i}/{len(image_paths)}] OCR {img_path} ...", end=" ", flush=True)
         text, err = ocr_page(img_path, args)
+        if text is not None and has_repetition_loop(text):
+            print("repetition loop detected, retrying ...", end=" ", flush=True)
+            text, err = ocr_page(img_path, args)
+            if text is not None and has_repetition_loop(text):
+                text, err = None, "repetition loop persisted after retry"
+
         if text is None:
             print("FAILED")
             print(f"    error: {err}", file=sys.stderr)
@@ -248,6 +266,15 @@ def main():
     )
     p.add_argument("--context", "-c", type=int, default=6144)
     p.add_argument("--max-tokens", "-n", type=int, default=4096)
+    p.add_argument(
+        "--temp",
+        type=float,
+        default=0.2,
+        help="sampling temperature; 0 (greedy) reliably repetition-loops on some pages",
+    )
+    p.add_argument("--dry-multiplier", type=float, default=1.2)
+    p.add_argument("--dry-allowed-length", type=int, default=8)
+    p.add_argument("--dry-penalty-last-n", type=int, default=256)
     p.add_argument("--timeout", type=int, default=300, help="seconds allowed per page")
     p.add_argument(
         "--output-dir",
