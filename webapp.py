@@ -107,17 +107,26 @@ def review(book):
     work_dir = os.path.join(OUTPUT_DIR, book, "ocr_work")
     pages_dir = os.path.join(work_dir, "pages")
     raw_dir = os.path.join(work_dir, "raw")
+    if not os.path.isdir(pages_dir):
+        return "Unknown book", 400
     total = len([n for n in os.listdir(pages_dir) if n.endswith(".png")])
+    if total == 0:
+        return "No pages found", 400
 
     pages = []
     detected_title = None
+    seen_first_present_page = False
     for i in range(1, total + 1):
         raw_path = os.path.join(raw_dir, f"page_{i:04d}.txt")
         image_name = f"page_{i:04d}.png"
         if os.path.exists(raw_path):
             with open(raw_path, "r", encoding="utf-8") as fh:
                 raw_text = fh.read()
-            md, title = pipeline.build_page_markdown(i, raw_text)
+            is_first_present_page = not seen_first_present_page
+            seen_first_present_page = True
+            md, title = pipeline.build_page_markdown(
+                i, raw_text, detect_title=is_first_present_page
+            )
             if title and detected_title is None:
                 detected_title = title
             failed = False

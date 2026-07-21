@@ -126,6 +126,25 @@ def test_review_page_shows_all_pages_with_text_and_flags_failed(client, tmp_path
     assert "page_0002.png" in body
 
 
+def test_review_detects_title_from_first_present_page_when_page_1_missing(client, tmp_path):
+    book = "reviewbook3"
+    _write_page_fixture(tmp_path, book, 1, raw_text=None)  # page 1 OCR failed
+    _write_page_fixture(tmp_path, book, 2, raw_text=(
+        "<|det|>title [0, 0, 100, 10]<|/det|>Title From Page Two\n"
+        "<|det|>text [0, 10, 100, 20]<|/det|>Page two text.\n"
+    ))
+
+    resp = client.get(f"/review/{book}")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    assert 'value="Title From Page Two"' in body
+
+
+def test_review_returns_400_when_pages_dir_missing(client):
+    resp = client.get("/review/no-such-book")
+    assert resp.status_code == 400
+
+
 def test_page_image_route_serves_png(client, tmp_path):
     book = "reviewbook2"
     _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>x\n")
