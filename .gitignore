@@ -4,3 +4,9 @@ llama.cpp/
 __pycache__/
 *.py[cod]
 .venv/
+.vscode/
+
+*.pdf
+*.epub
+output/
+ocr_work/

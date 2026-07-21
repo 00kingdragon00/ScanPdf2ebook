@@ -18,10 +18,20 @@ python3 main.py mybook.pdf -o mybook.epub \
     --gpu-layers 10 --cover-page 1
 ```
 
+By default the EPUB and its OCR cache are saved under `output/<book-name>/`,
+keyed off the input PDF's filename, so running multiple books never collides:
+
+```
+output/
+  mybook/
+    ocr_work/       # page images + raw OCR (cache)
+  mybook.epub
+```
+
 Resume after a crash/interrupt (only re-OCRs missing pages):
 
 ```bash
-python3 main.py mybook.pdf -o mybook.epub --resume \
+python3 main.py mybook.pdf --resume \
     --model ./models/Unlimited-OCR-Q8_0.gguf \
     --mmproj ./models/mmproj-Unlimited-OCR-F16.gguf
 ```
@@ -36,5 +46,6 @@ python3 main.py mybook.pdf -o mybook.epub --resume \
 | `--dpi` | `200` | page render DPI |
 | `--gpu-layers, -ngl` | `10` | GPU layers (0 = CPU only) |
 | `--context, -c` | `6144` | context size |
-| `--work-dir` | `./ocr_work` | cache dir (page images + raw OCR) |
+| `--output-dir` | `output` | base dir for epub + per-book work dir |
+| `--work-dir` | `<output-dir>/<book-name>/ocr_work` | cache dir (page images + raw OCR) |
 | `--cover-page` | none | PDF page number to use as cover |

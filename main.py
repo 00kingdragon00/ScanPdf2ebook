@@ -1,25 +1,4 @@
-#!/usr/bin/env python3
-"""
-pdf2ebook.py — single-command pipeline: scanned PDF -> Unlimited-OCR -> EPUB
-
-Requires:
-    pip install pymupdf
-    pandoc installed (apt install pandoc)
-    A working llama.cpp build (PR #17400 branch) with an Unlimited-OCR GGUF
-    quant + its mmproj file.
-
-Basic usage:
-    python3 pdf2ebook.py mybook.pdf -o mybook.epub \\
-        --model ./uocr/Unlimited-OCR-Q8_0.gguf \\
-        --mmproj ./uocr/mmproj-Unlimited-OCR-F16.gguf \\
-        --title "My Book Title" --author "Author Name" \\
-        --gpu-layers 10 --cover-page 1
-
-Resume after a crash/interrupt (only re-OCRs missing pages):
-    python3 pdf2ebook.py mybook.pdf -o mybook.epub --resume \\
-        --model ... --mmproj ...
-"""
-
+#!/usr/bin/env python3dds
 import argparse
 import os
 import re
@@ -253,8 +232,16 @@ def main():
     )
     p.add_argument("--author", default="Unknown", help="book author")
     p.add_argument("--llama-bin", default="llama.cpp/build/bin/llama-mtmd-cli")
-    p.add_argument("--model", required=True, help="path to Unlimited-OCR GGUF quant")
-    p.add_argument("--mmproj", required=True, help="path to mmproj GGUF")
+    p.add_argument(
+        "--model",
+        default="models/baidu.Unlimited-OCR.Q8_0.gguf",
+        help="path to Unlimited-OCR GGUF quant",
+    )
+    p.add_argument(
+        "--mmproj",
+        default="models/mmproj-baidu.Unlimited-OCR.f16.gguf",
+        help="path to mmproj GGUF",
+    )
     p.add_argument("--dpi", type=int, default=200)
     p.add_argument(
         "--gpu-layers", "-ngl", type=int, default=10, help="0 = CPU/RAM only"
@@ -263,9 +250,15 @@ def main():
     p.add_argument("--max-tokens", "-n", type=int, default=4096)
     p.add_argument("--timeout", type=int, default=300, help="seconds allowed per page")
     p.add_argument(
+        "--output-dir",
+        default="output",
+        help="base dir for the epub and per-book work dir",
+    )
+    p.add_argument(
         "--work-dir",
-        default="./ocr_work",
-        help="cache dir (page images + raw OCR); reused by --resume",
+        default=None,
+        help="cache dir (page images + raw OCR); reused by --resume "
+        "(default: <output-dir>/<book-name>/ocr_work)",
     )
     p.add_argument(
         "--resume", action="store_true", help="skip pages already OCR'd in --work-dir"
@@ -279,8 +272,15 @@ def main():
     p.add_argument("--toc-depth", type=int, default=1)
     args = p.parse_args()
 
+    book_name = os.path.splitext(os.path.basename(args.pdf))[0]
+
     if not args.output:
-        args.output = os.path.splitext(os.path.basename(args.pdf))[0] + ".epub"
+        args.output = os.path.join(args.output_dir, book_name + ".epub")
+    if not args.work_dir:
+        args.work_dir = os.path.join(args.output_dir, book_name, "ocr_work")
+
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+    os.makedirs(args.work_dir, exist_ok=True)
 
     print(f"Rendering pages from {args.pdf} at {args.dpi} DPI...")
     image_paths = render_pages(args.pdf, os.path.join(args.work_dir, "pages"), args.dpi)
