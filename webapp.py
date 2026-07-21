@@ -172,6 +172,7 @@ def review(book):
     pages = []
     detected_title = None
     seen_first_present_page = False
+    numbered_pages = []
     for i in range(1, total + 1):
         raw_path = os.path.join(raw_dir, f"page_{i:04d}.txt")
         image_name = f"page_{i:04d}.png"
@@ -186,13 +187,21 @@ def review(book):
             if title and detected_title is None:
                 detected_title = title
             failed = False
+            numbered_pages.append((i, pipeline.extract_page_number(raw_text)))
         else:
             md = ""
             failed = True
+            numbered_pages.append((i, None))
         pages.append({"num": i, "image": image_name, "text": md, "failed": failed})
 
+    gaps = pipeline.find_page_number_gaps(numbered_pages)
+
     return render_template(
-        "review.html", book=book, pages=pages, detected_title=detected_title or "Untitled"
+        "review.html",
+        book=book,
+        pages=pages,
+        detected_title=detected_title or "Untitled",
+        gaps=gaps,
     )
 
 

@@ -25,6 +25,13 @@
       </div>
     </div>
 
+    {% if gaps %}
+    <div class="gap-warning">
+      Possible missing pages detected:
+      {% for a, b in gaps %}between page numbers {{ a }} and {{ b }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+
     {% for page in pages %}
     <div class="page-block{% if page.failed %} failed{% endif %}" data-page-block>
       <img src="/pages/{{ book }}/{{ page.image }}" alt="Page {{ page.num }}">

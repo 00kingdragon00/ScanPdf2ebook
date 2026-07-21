@@ -306,3 +306,37 @@ def test_status_endpoint_includes_phase(client):
     }
     resp = client.get("/status/somebook")
     assert resp.get_json()["phase"] == "ocr"
+
+
+def test_review_page_shows_gap_warning_when_page_numbers_skip(client, tmp_path):
+    book = "gapbook"
+    _write_page_fixture(tmp_path, book, 1, raw_text=(
+        "<|det|>text [0, 10, 100, 20]<|/det|>Page one text.\n"
+        "<|det|>footer [0, 90, 100, 100]<|/det|>10\n"
+    ))
+    _write_page_fixture(tmp_path, book, 2, raw_text=(
+        "<|det|>text [0, 10, 100, 20]<|/det|>Page two text.\n"
+        "<|det|>footer [0, 90, 100, 100]<|/det|>12\n"
+    ))
+
+    resp = client.get(f"/review/{book}")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    assert "10" in body and "12" in body
+    assert "missing" in body.lower() or "gap" in body.lower()
+
+
+def test_review_page_shows_no_gap_warning_when_page_numbers_consecutive(client, tmp_path):
+    book = "nogapbook"
+    _write_page_fixture(tmp_path, book, 1, raw_text=(
+        "<|det|>text [0, 10, 100, 20]<|/det|>Page one text.\n"
+        "<|det|>footer [0, 90, 100, 100]<|/det|>10\n"
+    ))
+    _write_page_fixture(tmp_path, book, 2, raw_text=(
+        "<|det|>text [0, 10, 100, 20]<|/det|>Page two text.\n"
+        "<|det|>footer [0, 90, 100, 100]<|/det|>11\n"
+    ))
+
+    resp = client.get(f"/review/{book}")
+    assert resp.status_code == 200
+    assert "gap-warning" not in resp.data.decode()
