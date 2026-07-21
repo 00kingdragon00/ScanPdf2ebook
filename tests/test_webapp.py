@@ -132,3 +132,45 @@ def test_page_image_route_serves_png(client, tmp_path):
     resp = client.get(f"/pages/{book}/page_0001.png")
     assert resp.status_code == 200
     assert resp.data.startswith(b"\x89PNG")
+
+
+def test_convert_rejects_when_not_all_pages_approved(client, tmp_path):
+    book = "convertbook1"
+    _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>hello\n")
+    _write_page_fixture(tmp_path, book, 2, raw_text="<|det|>text [0,0,1,1]<|/det|>world\n")
+
+    resp = client.post(f"/convert/{book}", data={
+        "total": "2",
+        "title": "T", "author": "A",
+        "text_1": "hello", "approved_1": "on",
+        "text_2": "world",  # page 2 not approved
+    })
+    assert resp.status_code == 400
+
+
+def test_convert_builds_epub_from_edited_text_when_all_approved(client, tmp_path, monkeypatch):
+    book = "convertbook2"
+    _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>original\n")
+
+    calls = []
+    monkeypatch.setattr(
+        webapp.pipeline, "build_epub",
+        lambda md_path, output_path, title, author, toc_depth, cover_path=None: calls.append(
+            (md_path, output_path, title, author)
+        ),
+    )
+
+    resp = client.post(f"/convert/{book}", data={
+        "total": "1",
+        "title": "My Title", "author": "My Author",
+        "text_1": "edited replacement text", "approved_1": "on",
+    })
+
+    assert resp.status_code == 200
+    assert len(calls) == 1
+    md_path, output_path, title, author = calls[0]
+    assert title == "My Title"
+    assert author == "My Author"
+    assert output_path == os.path.join(str(tmp_path / "output"), f"{book}.epub")
+    with open(md_path, encoding="utf-8") as fh:
+        assert fh.read() == "edited replacement text"

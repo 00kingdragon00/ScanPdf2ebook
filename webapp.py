@@ -137,5 +137,29 @@ def page_image(book, filename):
     return send_from_directory(pages_dir, filename)
 
 
+@app.route("/convert/<book>", methods=["POST"])
+def convert(book):
+    total = int(request.form["total"])
+
+    texts = []
+    for i in range(1, total + 1):
+        if request.form.get(f"approved_{i}") != "on":
+            return f"Page {i} is not approved", 400
+        texts.append(request.form.get(f"text_{i}", ""))
+
+    work_dir = os.path.join(OUTPUT_DIR, book, "ocr_work")
+    md_path = os.path.join(work_dir, "clean.md")
+    with open(md_path, "w", encoding="utf-8") as fh:
+        fh.write("\n\n".join(texts))
+
+    title = request.form.get("title") or "Untitled"
+    author = request.form.get("author") or "Unknown"
+    output_path = os.path.join(OUTPUT_DIR, f"{book}.epub")
+
+    pipeline.build_epub(md_path, output_path, title, author, toc_depth=1)
+
+    return render_template("done.html", book=book, output_path=output_path)
+
+
 if __name__ == "__main__":
     app.run(debug=True)
