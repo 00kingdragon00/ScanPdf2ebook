@@ -1,0 +1,17 @@
+<!doctype html>
+<title>OCR in progress</title>
+<h1>OCR in progress: {{ book }}</h1>
+<p id="status">Starting...</p>
+<script>
+async function poll() {
+  const res = await fetch("/status/{{ book }}");
+  const data = await res.json();
+  document.getElementById("status").textContent = "Page " + data.done + "/" + data.total;
+  if (data.finished) {
+    window.location.href = "/review/{{ book }}";
+  } else {
+    setTimeout(poll, 2000);
+  }
+}
+poll();
+</script>
