@@ -95,3 +95,36 @@ def test_ocr_all_pages_calls_progress_cb_per_page(tmp_path, monkeypatch):
     assert calls == [(1, 2), (2, 2)]
     assert os.path.exists(tmp_path / "raw" / "page_0001.txt")
     assert os.path.exists(tmp_path / "raw" / "page_0002.txt")
+
+
+def test_extract_page_number_finds_numeric_footer():
+    raw = (
+        "<|det|>text [0, 0, 100, 20]<|/det|>Some body text.\n"
+        "<|det|>footer [0, 90, 100, 100]<|/det|>42\n"
+    )
+    assert main.extract_page_number(raw) == 42
+
+
+def test_extract_page_number_returns_none_when_no_numeric_footer():
+    raw = "<|det|>text [0, 0, 100, 20]<|/det|>Some body text.\n"
+    assert main.extract_page_number(raw) is None
+
+
+def test_extract_page_number_ignores_non_numeric_footer():
+    raw = "<|det|>footer [0, 90, 100, 100]<|/det|>Chapter One\n"
+    assert main.extract_page_number(raw) is None
+
+
+def test_find_page_number_gaps_detects_a_skipped_number():
+    numbered = [(1, 10), (2, 11), (3, 13), (4, 14)]
+    assert main.find_page_number_gaps(numbered) == [(11, 13)]
+
+
+def test_find_page_number_gaps_ignores_none_entries():
+    numbered = [(1, 10), (2, None), (3, 11)]
+    assert main.find_page_number_gaps(numbered) == []
+
+
+def test_find_page_number_gaps_returns_empty_for_consecutive_numbers():
+    numbered = [(1, 1), (2, 2), (3, 3)]
+    assert main.find_page_number_gaps(numbered) == []

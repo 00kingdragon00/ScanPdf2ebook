@@ -8,6 +8,7 @@ import fitz  # PyMuPDF
 DET_RE = re.compile(r"<\|det\|>(\w+)\s*\[[^\]]*\]<\|/det\|>(.*)$")
 SKIP_TYPES = {"image", "footer"}
 ASIDE_TYPES = {"aside_text"}
+PAGE_NUMBER_RE = re.compile(r"^\d{1,4}$")
 
 
 # ---------- PDF -> page images ----------
@@ -165,6 +166,22 @@ def parse_blocks(raw_text):
             current_lines.append(line)
     flush()
     return blocks
+
+
+def extract_page_number(raw_text):
+    for btype, text in parse_blocks(raw_text):
+        if btype == "footer" and PAGE_NUMBER_RE.match(text.strip()):
+            return int(text.strip())
+    return None
+
+
+def find_page_number_gaps(numbered_pages):
+    known = [(i, n) for i, n in numbered_pages if n is not None]
+    gaps = []
+    for (_, n1), (_, n2) in zip(known, known[1:]):
+        if n2 - n1 > 1:
+            gaps.append((n1, n2))
+    return gaps
 
 
 def blocks_to_markdown(blocks, detect_title=True):
