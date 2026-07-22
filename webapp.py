@@ -247,11 +247,13 @@ def convert(book):
     if total == 0:
         return "No pages found", 400
 
-    texts = []
-    for i in range(1, total + 1):
-        if request.form.get(f"approved_{i}") != "on":
-            return f"Page {i} is not approved", 400
-        texts.append(request.form.get(f"text_{i}", ""))
+    texts = [
+        request.form.get(f"text_{i}", "")
+        for i in range(1, total + 1)
+        if request.form.get(f"approved_{i}") == "on"
+    ]
+    if not texts:
+        return "No pages selected", 400
 
     work_dir = os.path.join(OUTPUT_DIR, book, "ocr_work")
     md_path = os.path.join(work_dir, "clean.md")

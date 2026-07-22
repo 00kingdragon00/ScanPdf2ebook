@@ -160,7 +160,7 @@ def test_page_image_route_serves_png(client, tmp_path):
     assert resp.data.startswith(b"\x89PNG")
 
 
-def test_convert_rejects_when_not_all_pages_approved(client, tmp_path):
+def test_convert_includes_only_selected_pages(client, tmp_path):
     book = "convertbook1"
     _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>hello\n")
     _write_page_fixture(tmp_path, book, 2, raw_text="<|det|>text [0,0,1,1]<|/det|>world\n")
@@ -169,15 +169,33 @@ def test_convert_rejects_when_not_all_pages_approved(client, tmp_path):
         "total": "2",
         "title": "T", "author": "A",
         "text_1": "hello", "approved_1": "on",
-        "text_2": "world",  # page 2 not approved
+        "text_2": "world",  # page 2 left unselected -> should be dropped, not error
+    })
+    assert resp.status_code == 200
+
+    work_dir = os.path.join(str(tmp_path / "output"), book, "ocr_work")
+    with open(os.path.join(work_dir, "clean.md"), encoding="utf-8") as fh:
+        content = fh.read()
+    assert content == "hello"
+
+
+def test_convert_rejects_when_no_pages_selected(client, tmp_path):
+    book = "convertbook_none"
+    _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>hello\n")
+
+    resp = client.post(f"/convert/{book}", data={
+        "total": "1",
+        "title": "T", "author": "A",
+        "text_1": "hello",  # not selected
     })
     assert resp.status_code == 400
+    assert b"No pages selected" in resp.data
 
 
 def test_convert_ignores_client_supplied_total_and_uses_real_page_count(client, tmp_path):
-    # Vulnerability repro: 3 real pages on disk, client lies with total=1 and only
-    # approves page 1. Server must derive total from disk (3), not trust the form,
-    # so pages 2 and 3 are still checked and the unapproved page is caught.
+    # 3 real pages on disk, client lies with total=1 but still selects pages 2
+    # and 3. Server must derive total from disk (3), not trust the form field,
+    # or it would silently drop pages 2 and 3 that the user actually selected.
     book = "convertbook3"
     _write_page_fixture(tmp_path, book, 1, raw_text="<|det|>text [0,0,1,1]<|/det|>one\n")
     _write_page_fixture(tmp_path, book, 2, raw_text="<|det|>text [0,0,1,1]<|/det|>two\n")
@@ -187,10 +205,17 @@ def test_convert_ignores_client_supplied_total_and_uses_real_page_count(client, 
         "total": "1",  # lie: claim only 1 page exists
         "title": "T", "author": "A",
         "text_1": "one", "approved_1": "on",
-        # page 2 and 3 omitted/not approved
+        "text_2": "two", "approved_2": "on",
+        "text_3": "three", "approved_3": "on",
     })
-    assert resp.status_code == 400
-    assert b"Page 2" in resp.data
+    assert resp.status_code == 200
+
+    work_dir = os.path.join(str(tmp_path / "output"), book, "ocr_work")
+    with open(os.path.join(work_dir, "clean.md"), encoding="utf-8") as fh:
+        content = fh.read()
+    assert "one" in content
+    assert "two" in content
+    assert "three" in content
 
 
 def test_convert_returns_400_when_pages_dir_missing(client):

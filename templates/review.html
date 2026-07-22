@@ -20,8 +20,9 @@
         <label>TOC depth
           <input type="number" name="toc_depth" value="1" min="1" max="6">
         </label>
-        <button type="button" class="btn-secondary" id="approve-all">Approve all</button>
-        <span class="approval-count" id="approval-count">0 / {{ pages|length }} approved</span>
+        <button type="button" class="btn-secondary" id="select-all">Select all</button>
+        <button type="button" class="btn-secondary" id="select-none">Select none</button>
+        <span class="approval-count" id="approval-count">0 / {{ pages|length }} selected</span>
       </div>
     </div>
 
@@ -43,14 +44,14 @@
         <textarea name="text_{{ page.num }}" rows="10">{{ page.text }}</textarea>
         <label class="approve-label">
           <input type="checkbox" class="approve-box" name="approved_{{ page.num }}">
-          Approved
+          Include this page
         </label>
       </div>
     </div>
     {% endfor %}
 
     <div class="convert-bar">
-      <span class="approval-count" id="approval-count-bottom">0 / {{ pages|length }} approved</span>
+      <span class="approval-count" id="approval-count-bottom">0 / {{ pages|length }} selected</span>
       <button type="submit" id="convert-btn" disabled>Convert to EPUB</button>
     </div>
   </form>
@@ -63,11 +64,11 @@ const countTop = document.getElementById("approval-count");
 const countBottom = document.getElementById("approval-count-bottom");
 
 function refresh() {
-  const approved = Array.from(boxes).filter(b => b.checked).length;
+  const selected = Array.from(boxes).filter(b => b.checked).length;
   const total = boxes.length;
-  countTop.textContent = approved + " / " + total + " approved";
-  countBottom.textContent = approved + " / " + total + " approved";
-  btn.disabled = approved !== total;
+  countTop.textContent = selected + " / " + total + " selected";
+  countBottom.textContent = selected + " / " + total + " selected";
+  btn.disabled = selected === 0;
 }
 
 boxes.forEach(b => b.addEventListener("change", e => {
@@ -75,10 +76,18 @@ boxes.forEach(b => b.addEventListener("change", e => {
   refresh();
 }));
 
-document.getElementById("approve-all").addEventListener("click", () => {
+document.getElementById("select-all").addEventListener("click", () => {
   boxes.forEach(b => {
     b.checked = true;
     b.closest("[data-page-block]").classList.add("approved");
+  });
+  refresh();
+});
+
+document.getElementById("select-none").addEventListener("click", () => {
+  boxes.forEach(b => {
+    b.checked = false;
+    b.closest("[data-page-block]").classList.remove("approved");
   });
   refresh();
 });
