@@ -16,7 +16,10 @@ def test_upload_form_page_loads(client):
 
 
 def test_upload_saves_pdf_to_input_dir(client, tmp_path, monkeypatch):
-    monkeypatch.setattr(webapp, "run_pipeline", lambda book_name, source_kind, source_value, args: None)
+    monkeypatch.setattr(
+        webapp, "run_pipeline",
+        lambda book_name, source_kind, source_value, args, video_settings=None: None,
+    )
 
     data = {"pdf": (io.BytesIO(b"%PDF-1.4 fake content"), "mybook.pdf")}
     resp = client.post("/upload", data=data, content_type="multipart/form-data")
@@ -251,7 +254,7 @@ def test_upload_accepts_youtube_url_and_starts_pipeline_with_youtube_source(clie
     calls = []
     monkeypatch.setattr(
         webapp, "run_pipeline",
-        lambda book_name, source_kind, source_value, args: calls.append(
+        lambda book_name, source_kind, source_value, args, video_settings=None: calls.append(
             (book_name, source_kind, source_value)
         ),
     )
@@ -271,7 +274,9 @@ def test_run_pipeline_youtube_source_tracks_phases_and_calls_video_module(tmp_pa
     monkeypatch.setattr(webapp, "OUTPUT_DIR", str(tmp_path / "output"))
     webapp.PROGRESS.clear()
 
-    def fake_extract_pages_from_youtube(url, work_dir, phase_cb=None):
+    def fake_extract_pages_from_youtube(
+        url, work_dir, phase_cb=None, scene_threshold=None, hash_distance_threshold=None
+    ):
         if phase_cb:
             phase_cb("downloading")
             phase_cb("extracting frames")

@@ -61,6 +61,17 @@
             <input type="number" name="timeout" value="300">
           </label>
         </div>
+
+        <h2>YouTube frame extraction</h2>
+        <div class="settings-grid">
+          <label>Scene-change sensitivity (lower = more frames)
+            <input type="number" step="0.01" name="scene_threshold" value="0.05">
+          </label>
+          <label>Dedup hash distance (higher = more aggressive)
+            <input type="number" name="hash_distance_threshold" value="4">
+          </label>
+        </div>
+
         <p class="actions"><button type="button" class="btn-secondary" id="close-settings">Done</button></p>
       </dialog>
     </form>

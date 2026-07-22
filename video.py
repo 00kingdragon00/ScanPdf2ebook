@@ -7,7 +7,12 @@ import imagehash
 import yt_dlp
 from PIL import Image
 
-DEFAULT_SCENE_THRESHOLD = 0.3
+# ffmpeg's "scene" score varies a lot by video source (encoder, page-turn
+# style); 0.3 (a common hard-cut default) missed nearly all page turns on a
+# real screen-recording, where transitions register as low as ~0.02-0.05.
+# 0.05 was empirically calibrated against two 10-minute segments of a real
+# 6.5-hour book video (6 candidate frames per segment, consistent).
+DEFAULT_SCENE_THRESHOLD = 0.05
 DEFAULT_HASH_DISTANCE_THRESHOLD = 4
 
 
@@ -55,7 +60,13 @@ def dedupe_frames(frame_paths, hash_distance_threshold=DEFAULT_HASH_DISTANCE_THR
     return kept
 
 
-def extract_pages_from_youtube(url, work_dir, phase_cb=None):
+def extract_pages_from_youtube(
+    url,
+    work_dir,
+    phase_cb=None,
+    scene_threshold=DEFAULT_SCENE_THRESHOLD,
+    hash_distance_threshold=DEFAULT_HASH_DISTANCE_THRESHOLD,
+):
     pages_dir = os.path.join(work_dir, "pages")
     candidates_dir = os.path.join(work_dir, "candidates")
     os.makedirs(pages_dir, exist_ok=True)
@@ -67,8 +78,8 @@ def extract_pages_from_youtube(url, work_dir, phase_cb=None):
 
     if phase_cb:
         phase_cb("extracting frames")
-    candidate_paths = extract_candidate_frames(video_path, candidates_dir)
-    kept_paths = dedupe_frames(candidate_paths)
+    candidate_paths = extract_candidate_frames(video_path, candidates_dir, scene_threshold)
+    kept_paths = dedupe_frames(candidate_paths, hash_distance_threshold)
 
     page_paths = []
     for i, src in enumerate(kept_paths, 1):

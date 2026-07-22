@@ -47,6 +47,23 @@ def ocr_args_from_form(form, work_dir):
     return argparse.Namespace(**values)
 
 
+# YouTube-only settings: how sensitive scene-change frame extraction is, and
+# how aggressively near-duplicate frames get collapsed. Defaults come from
+# video.py's own empirically-calibrated defaults.
+VIDEO_SETTINGS = {
+    "scene_threshold": (video.DEFAULT_SCENE_THRESHOLD, float),
+    "hash_distance_threshold": (video.DEFAULT_HASH_DISTANCE_THRESHOLD, int),
+}
+
+
+def video_settings_from_form(form):
+    values = {}
+    for key, (default, cast) in VIDEO_SETTINGS.items():
+        raw = form.get(key)
+        values[key] = cast(raw) if raw not in (None, "") else default
+    return values
+
+
 def find_input_pdf(book_name):
     candidate = os.path.join(INPUT_DIR, book_name + ".pdf")
     return candidate if os.path.exists(candidate) else None
@@ -60,7 +77,7 @@ def book_name_from_youtube_url(url):
     return m.group(1) if m else "youtube-video"
 
 
-def run_pipeline(book_name, source_kind, source_value, args):
+def run_pipeline(book_name, source_kind, source_value, args, video_settings=None):
     os.makedirs(args.work_dir, exist_ok=True)
 
     with PROGRESS_LOCK:
@@ -78,8 +95,15 @@ def run_pipeline(book_name, source_kind, source_value, args):
                 with PROGRESS_LOCK:
                     PROGRESS[book_name]["phase"] = phase
 
+            settings = video_settings or {}
             image_paths = video.extract_pages_from_youtube(
-                source_value, args.work_dir, phase_cb=on_phase
+                source_value,
+                args.work_dir,
+                phase_cb=on_phase,
+                scene_threshold=settings.get("scene_threshold", video.DEFAULT_SCENE_THRESHOLD),
+                hash_distance_threshold=settings.get(
+                    "hash_distance_threshold", video.DEFAULT_HASH_DISTANCE_THRESHOLD
+                ),
             )
         else:
             image_paths = pipeline.render_pages(
@@ -135,9 +159,12 @@ def upload():
 
     work_dir = os.path.join(OUTPUT_DIR, book_name, "ocr_work")
     args = ocr_args_from_form(request.form, work_dir)
+    video_settings = video_settings_from_form(request.form)
 
     thread = threading.Thread(
-        target=run_pipeline, args=(book_name, source_kind, source_value, args), daemon=True
+        target=run_pipeline,
+        args=(book_name, source_kind, source_value, args, video_settings),
+        daemon=True,
     )
     thread.start()
 
